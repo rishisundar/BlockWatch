@@ -1,6 +1,6 @@
 const Web3 = require('web3');
 require('dotenv').config()
-const web3 = new Web3(`${process.env.API_KEY}`);
+const web3 = new Web3(`${process.env.RPC_NODE_URL}`);
 
 web3.eth.getBlockNumber((error, blockNumber) => {
     if (error) {
