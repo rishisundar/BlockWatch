@@ -28,6 +28,7 @@ const filter = {
 
 
 async function getPriceFromDefillama(address) {
+    if(!address) return null;
     let pricingInfo = null;
     const defiLlamaRequestURLSuffix = `ethereum:${address}`;
     const requestURL = DEFILLAMA_COIN_PRICE_API_ENDPOINT_PREFIX.concat(defiLlamaRequestURLSuffix);
@@ -89,7 +90,10 @@ const subscription = web3.eth.subscribe('logs', {
                         const transferValueUSD = actualTokenValue.times(tokenInfo.usdPrice);
                         if (transferValueUSD.isGreaterThanOrEqualTo(LARGE_VALUE_LIMIT_USD)) {
                             console.log(`\nBEGINNING OF ALERT\n\nLarge Transfer Log:\n${JSON.stringify(result, null, 2)}\n`);
-                            console.log(`Large transfer from ${data.from} to ${data.to}: ${actualTokenValue.toFixed(2)} ${tokenInfo.symbol} tokens ($${transferValueUSD.toFixed(2)})\ntxHash: ${result.transactionHash}\n`);
+                            console.log(`Large transfer from ${data.from} to ${data.to}: ${actualTokenValue.toFixed(2)} ${tokenInfo.symbol} tokens ($${transferValueUSD.toFixed(2)})\n`);
+                            const etherScanURL = `https://www.etherscan.io/tx/${result.transactionHash}`;
+                            const openChainURL = `https://openchain.xyz/trace/ethereum/${result.transactionHash}`;
+                            console.log(`Tx Info:\nEtherscan: ${etherScanURL}\nOpenchain: ${openChainURL}\n`);
                             console.log('END OF ALERT\n');
                         }
                     }
