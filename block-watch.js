@@ -127,7 +127,7 @@ const subscription = web3.eth.subscribe('logs', {
     }
 });
 
-// Unsubscribe after 20 seconds
+// Unsubscribe after 30 seconds
 setTimeout(() => {
     subscription.unsubscribe((error, success) => {
         if (success) {
@@ -135,4 +135,4 @@ setTimeout(() => {
         }
         process.exit()
     });
-}, 20000);
+}, 30000);
