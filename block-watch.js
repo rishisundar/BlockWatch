@@ -1,6 +1,6 @@
 const Web3 = require('web3');
-
-const web3 = new Web3('wss://rpc.ankr.com/eth/ws/');
+require('dotenv').config()
+const web3 = new Web3(`${process.env.API_KEY}`);
 
 web3.eth.getBlockNumber((error, blockNumber) => {
     if (error) {
@@ -127,7 +127,7 @@ const subscription = web3.eth.subscribe('logs', {
     }
 });
 
-// Unsubscribe after 10 seconds
+// Unsubscribe after 20 seconds
 setTimeout(() => {
     subscription.unsubscribe((error, success) => {
         if (success) {
@@ -135,4 +135,4 @@ setTimeout(() => {
         }
         process.exit()
     });
-}, 30000);
+}, 20000);
