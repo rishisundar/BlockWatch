@@ -1,7 +1,10 @@
 const Web3 = require('web3');
 require('dotenv').config()
-const web3 = new Web3(`${process.env.RPC_NODE_URL}`);
+const axios = require('axios');
+const BigNumber = require('bignumber.js');
 
+const web3 = new Web3(`${process.env.RPC_NODE_URL}`);
+console.clear();
 web3.eth.getBlockNumber((error, blockNumber) => {
     if (error) {
         console.error(error);
@@ -9,6 +12,10 @@ web3.eth.getBlockNumber((error, blockNumber) => {
         console.log('Latest block number:', blockNumber);
     }
 });
+
+const DEFILLAMA_COIN_PRICE_API_ENDPOINT_PREFIX = 'https://coins.llama.fi/prices/current/';
+const DEFILLAMA_COIN_PRICE_INFO_SEARCH_WIDTH = '1h'; //Defaults to 6h
+const LARGE_VALUE_LIMIT_USD = new BigNumber('1000');
 
 const filter = {
     topics: [
@@ -20,14 +27,40 @@ const filter = {
 };
 
 
+async function getPriceFromDefillama(address) {
+    let pricingInfo = null;
+    const defiLlamaRequestURLSuffix = `ethereum:${address}`;
+    const requestURL = DEFILLAMA_COIN_PRICE_API_ENDPOINT_PREFIX.concat(defiLlamaRequestURLSuffix);
+    const response = await axios.get(requestURL, {
+        params: {
+            searchWidth: DEFILLAMA_COIN_PRICE_INFO_SEARCH_WIDTH,
+        },
+    });
+    if (response.status !== 200) {
+        logger.error(
+            `DefiLlama request failed with status code ${response.status}. ${response.statusText}`
+        );
+    } else {
+        const coinPrice = response?.data?.coins[defiLlamaRequestURLSuffix];
+        if (coinPrice) {
+            pricingInfo = {
+                usdPrice: coinPrice.price,
+                decimals: coinPrice.decimals,
+                symbol: coinPrice.symbol
+            }
+        }
+    }
+    return pricingInfo;
+}
+
+
 const subscription = web3.eth.subscribe('logs', {
     filter
-}, (error, result) => {
+}, async (error, result) => {
     if (!error) {
         if (result && result.blockNumber !== null) {
             try {
                 if (result.topics[0] === filter.topics[0]) {
-                    console.log('Transfer Log:', result);
 
                     // Transfer event
                     const data = web3.eth.abi.decodeLog(
@@ -49,7 +82,17 @@ const subscription = web3.eth.subscribe('logs', {
                         result.data,
                         result.topics.slice(1)
                     );
-                    console.log(`Transfer from ${data.from} to ${data.to}: ${data.value} tokens.\n`);
+                    const tokenInfo = await getPriceFromDefillama(result.address);
+                    if (tokenInfo) {
+                        const rawTokenValue = new BigNumber(data.value);
+                        const actualTokenValue = rawTokenValue.dividedBy(Math.pow(10, tokenInfo.decimals));
+                        const transferValueUSD = actualTokenValue.times(tokenInfo.usdPrice);
+                        if (transferValueUSD.isGreaterThanOrEqualTo(LARGE_VALUE_LIMIT_USD)) {
+                            console.log(`\nBEGINNING OF ALERT\n\nLarge Transfer Log:\n${JSON.stringify(result, null, 2)}\n`);
+                            console.log(`Large transfer from ${data.from} to ${data.to}: ${actualTokenValue.toFixed(2)} ${tokenInfo.symbol} tokens ($${transferValueUSD.toFixed(2)})\ntxHash: ${result.transactionHash}\n`);
+                            console.log('END OF ALERT\n');
+                        }
+                    }
                 } else if (result.topics[0] === filter.topics[1]) {
                     console.log('Swap Log:', result);
 
@@ -123,7 +166,7 @@ const subscription = web3.eth.subscribe('logs', {
                     console.log(`Withdraw from ${data.user}: ${data.amount} tokens of ${data.token}.\n`);
                 }
             } catch (err) {
-                console.error('Unable to decode log.\n');
+                // console.error('Unable to decode log.\n');
             }
         }
     }
